@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BTC · ETH 일봉 이동평균선과 RSI</title>
+<style>
+:root{
+  --bg:#F5F6F8; --panel:#FFFFFF; --ink:#151A22; --muted:#6A7381; --grid:#E4E7EC; --line:#D5D9E0;
+  --c50:#12908A; --c100:#3F6FE0; --c200:#E4801F; --rsi:#7C5CE6; --band:rgba(228,128,31,.10); --pos:#12805C; --neg:#C7443A;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1116; --panel:#151A21; --ink:#E8ECF1; --muted:#8B94A3; --grid:#232A34; --line:#2C3440;
+    --c50:#2DBDB5; --c100:#7C9CFF; --c200:#F5A04A; --rsi:#A28CFF; --band:rgba(245,160,74,.10); --pos:#34C08F; --neg:#F0776D;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1116; --panel:#151A21; --ink:#E8ECF1; --muted:#8B94A3; --grid:#232A34; --line:#2C3440;
+  --c50:#2DBDB5; --c100:#7C9CFF; --c200:#F5A04A; --rsi:#A28CFF; --band:rgba(245,160,74,.10); --pos:#34C08F; --neg:#F0776D;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",system-ui,sans-serif;line-height:1.5;-webkit-text-size-adjust:100%}
+.wrap{max-width:1120px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:20px;font-weight:700;margin:0 0 2px;letter-spacing:-.01em}
+.sub{color:var(--muted);font-size:13px;margin:0 0 16px}
+.readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:12px}
+.readout div{background:var(--panel);padding:8px 12px}
+.readout small{display:block;color:var(--muted);font-size:12px}
+.readout b{font-size:16px;font-variant-numeric:tabular-nums;font-weight:650}
+.readout .k50 b{color:var(--c50)} .readout .k100 b{color:var(--c100)} .readout .k200 b{color:var(--c200)} .readout .krsi b{color:var(--rsi)}
+.controls{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin-bottom:10px;font-size:13px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{background:var(--panel);color:var(--ink);border:0;border-right:1px solid var(--line);padding:6px 12px;font:inherit;cursor:pointer}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.seg button:focus-visible,.chk input:focus-visible{outline:2px solid var(--c100);outline-offset:2px}
+.chk{display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+.chk i{width:14px;height:3px;border-radius:2px;display:inline-block}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 8px 6px}
+.cv1{position:relative;height:380px}
+.cv2{position:relative;height:150px;border-top:1px solid var(--grid);margin-top:6px;padding-top:6px}
+.plabel{font-size:12px;color:var(--muted);padding:0 8px 2px}
+.status{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 6px}
+.status span{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:4px 12px;font-size:13px}
+.status .up{color:var(--pos)} .status .dn{color:var(--neg)}
+.note{color:var(--muted);font-size:12px;margin-top:10px;max-width:74ch}
+.err{border:1px solid var(--neg);color:var(--neg);background:var(--panel);border-radius:8px;padding:12px 14px;font-size:14px;margin-bottom:12px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>BTC · ETH 일봉 이동평균선과 RSI</h1>
+  <p class="sub" id="sub">데이터를 불러오는 중이에요.</p>
+  <div class="err" id="err" hidden></div>
+
+  <div class="readout" aria-live="polite">
+    <div><small id="ro-date">날짜</small><b id="ro-close">-</b></div>
+    <div class="k50"><small>50일선</small><b id="ro-50">-</b></div>
+    <div class="k100"><small>100일선</small><b id="ro-100">-</b></div>
+    <div class="k200"><small>200일선</small><b id="ro-200">-</b></div>
+    <div class="krsi"><small>RSI(14)</small><b id="ro-rsi">-</b></div>
+  </div>
+
+  <div class="controls">
+    <div class="seg" role="group" aria-label="종목">
+      <button data-asset="btc" aria-pressed="true">BTC</button>
+      <button data-asset="eth" aria-pressed="false">ETH</button>
+    </div>
+    <div class="seg" role="group" aria-label="기간">
+      <button data-range="1y" aria-pressed="false">1년</button>
+      <button data-range="2y" aria-pressed="false">2년</button>
+      <button data-range="all" aria-pressed="true">전체</button>
+    </div>
+    <label class="chk"><input type="checkbox" id="t50" checked><i style="background:var(--c50)"></i>50일선</label>
+    <label class="chk"><input type="checkbox" id="t100" checked><i style="background:var(--c100)"></i>100일선</label>
+    <label class="chk"><input type="checkbox" id="t200" checked><i style="background:var(--c200)"></i>200일선</label>
+    <label class="chk"><input type="checkbox" id="tlog" checked>로그 눈금</label>
+    <label class="chk"><input type="checkbox" id="tband" checked>2023.10~2025.10 구간 표시</label>
+  </div>
+
+  <div class="panel">
+    <div class="plabel">종가 (USDT)</div>
+    <div class="cv1"><canvas id="cp" role="img" aria-label="종가와 50, 100, 200일 이동평균선"></canvas></div>
+    <div class="plabel" style="margin-top:8px">RSI(14) · 기준선 30, 50, 70</div>
+    <div class="cv2"><canvas id="cr" role="img" aria-label="RSI 14"></canvas></div>
+  </div>
+
+  <div class="status" id="status"></div>
+  <p class="note">이동평균선은 종가 기준 단순이동평균, RSI는 14일 Wilder 방식이에요. 업비트 USDT 마켓의 일봉 종가(UTC 기준, 한국시간 오전 9시 마감)로 계산하며, 마감 전인 오늘 봉은 넣지 않아요. TradingView(바이낸스) 값과는 소수점 아래에서 조금 다를 수 있어요. 음영은 2023.10.2~2025.10.6 구간이에요.</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const BAND = ['2023-10-02','2025-10-06'];
+const S = {asset:'btc', range:'all', log:true, s50:true, s100:true, s200:true, band:true, hover:null, i0:0};
+let RAW = null, D = null, cp = null, cr = null;
+const $ = id => document.getElementById(id);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmt = v => v==null ? '-' : (v>=1000 ? Math.round(v).toLocaleString('en-US') : v.toFixed(2));
+
+function sma(a, n){
+  const out = new Array(a.length).fill(null); let s = 0;
+  for(let i=0;i<a.length;i++){ s += a[i]; if(i>=n) s -= a[i-n]; if(i>=n-1) out[i] = s/n; }
+  return out;
+}
+function rsi14(a){
+  const out = new Array(a.length).fill(null); if(a.length < 15) return out;
+  let g=0, l=0;
+  for(let i=1;i<=14;i++){ const d=a[i]-a[i-1]; if(d>0) g+=d; else l-=d; }
+  let ag=g/14, al=l/14;
+  const val = () => al===0 ? 100 : 100 - 100/(1+ag/al);
+  out[14] = val();
+  for(let i=15;i<a.length;i++){
+    const d=a[i]-a[i-1];
+    ag = (ag*13 + Math.max(d,0))/14; al = (al*13 + Math.max(-d,0))/14;
+    out[i] = val();
+  }
+  return out;
+}
+function prepare(){
+  const s = RAW.series[S.asset];
+  D = {d:s.d, c:s.c, s50:sma(s.c,50), s100:sma(s.c,100), s200:sma(s.c,200), r:rsi14(s.c)};
+}
+function startIndex(){ const n=D.d.length; return S.range==='1y' ? Math.max(0,n-365) : S.range==='2y' ? Math.max(0,n-730) : 0; }
+function lowerBound(arr, key){ let i=0; while(i<arr.length && arr[i]<key) i++; return i; }
+
+function updateReadout(){
+  const gi = S.hover==null ? D.d.length-1 : S.i0 + S.hover;
+  $('ro-date').textContent = D.d[gi];
+  $('ro-close').textContent = fmt(D.c[gi]);
+  $('ro-50').textContent = fmt(D.s50[gi]);
+  $('ro-100').textContent = fmt(D.s100[gi]);
+  $('ro-200').textContent = fmt(D.s200[gi]);
+  $('ro-rsi').textContent = D.r[gi]==null ? '-' : D.r[gi].toFixed(1);
+}
+
+const overlay = {
+  id:'overlay',
+  beforeDatasetsDraw(chart){
+    const o = chart.options.plugins.overlay || {};
+    if(!o.band || o.b0==null) return;
+    const {ctx, chartArea:a, scales:{x}} = chart;
+    const x0 = x.getPixelForValue(o.b0), x1 = x.getPixelForValue(o.b1);
+    ctx.save(); ctx.fillStyle = css('--band'); ctx.fillRect(x0, a.top, Math.max(0,x1-x0), a.bottom-a.top); ctx.restore();
+  },
+  afterDatasetsDraw(chart){
+    const o = chart.options.plugins.overlay || {};
+    const {ctx, chartArea:a, scales:{x,y}} = chart;
+    ctx.save();
+    if(o.guides){
+      ctx.strokeStyle = css('--muted'); ctx.globalAlpha = .55; ctx.lineWidth = 1; ctx.setLineDash([4,4]);
+      o.guides.forEach(v => { const py=y.getPixelForValue(v); ctx.beginPath(); ctx.moveTo(a.left,py); ctx.lineTo(a.right,py); ctx.stroke(); });
+    }
+    if(S.hover!=null){
+      const px = x.getPixelForValue(S.hover);
+      ctx.setLineDash([]); ctx.globalAlpha = .7; ctx.strokeStyle = css('--muted'); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(px,a.top); ctx.lineTo(px,a.bottom); ctx.stroke();
+    }
+    ctx.restore();
+  },
+  afterEvent(chart, args){
+    const e = args.event;
+    if(e.type==='mouseout'){ S.hover=null; }
+    else if(e.type==='mousemove' || e.type==='touchmove' || e.type==='touchstart'){
+      const els = chart.getElementsAtEventForMode(e.native,'index',{intersect:false},false);
+      if(els.length) S.hover = els[0].index;
+    } else return;
+    updateReadout();
+    [cp,cr].forEach(c => { if(c && c!==chart) c.draw(); });
+  }
+};
+
+function tickFmt(v){
+  const n = +v;
+  if(S.log){ const m = n / Math.pow(10, Math.floor(Math.log10(n))); if(![1,2,5].includes(Math.round(m))) return ''; }
+  return n>=1000 ? (n/1000)+'k' : n;
+}
+
+function build(){
+  if(!D) return;
+  if(cp) cp.destroy(); if(cr) cr.destroy();
+  const i0 = startIndex(); S.i0 = i0; S.hover = null;
+  const L = D.d.slice(i0);
+  const ink=css('--ink'), grid=css('--grid'), muted=css('--muted');
+  const b0 = lowerBound(L, BAND[0]), b1 = Math.min(L.length-1, lowerBound(L, BAND[1]));
+  const bandOn = S.band && b1>b0 && b0<L.length;
+  const ds = (label,key,color,w,show)=>({label, data:D[key].slice(i0), borderColor:color, borderWidth:w, pointRadius:0, pointHoverRadius:0, tension:0, spanGaps:false, hidden:!show});
+  const xopt = { grid:{color:grid, drawTicks:false}, border:{color:grid},
+    ticks:{ color:muted, maxRotation:0, autoSkip:true, maxTicksLimit:8, callback:(v)=>{ const s=L[v]; return s ? s.slice(2,4)+'.'+s.slice(5,7) : ''; } } };
+  const common = { responsive:true, maintainAspectRatio:false, animation:false, events:['mousemove','mouseout','touchstart','touchmove'],
+    interaction:{mode:'index', intersect:false}, layout:{padding:{right:4}} };
+  cp = new Chart($('cp'), { type:'line', data:{labels:L, datasets:[
+      ds('종가','c',ink,1.3,true), ds('50일선','s50',css('--c50'),1.5,S.s50), ds('100일선','s100',css('--c100'),1.5,S.s100), ds('200일선','s200',css('--c200'),2,S.s200)]},
+    options:{...common, plugins:{legend:{display:false}, tooltip:{enabled:false}, overlay:{band:bandOn, b0, b1}},
+      scales:{ x:{...xopt, ticks:{...xopt.ticks, display:true}},
+        y:{ type:S.log?'logarithmic':'linear', position:'right', grid:{color:grid}, border:{display:false},
+            ticks:{color:muted, callback:tickFmt, maxTicksLimit:8} } } },
+    plugins:[overlay] });
+  cr = new Chart($('cr'), { type:'line', data:{labels:L, datasets:[ds('RSI','r',css('--rsi'),1.4,true)]},
+    options:{...common, plugins:{legend:{display:false}, tooltip:{enabled:false}, overlay:{band:bandOn, b0, b1, guides:[30,50,70]}},
+      scales:{ x:{...xopt, ticks:{...xopt.ticks, display:false}},
+        y:{ min:0, max:100, position:'right', grid:{display:false}, border:{display:false},
+            afterBuildTicks:ax=>{ ax.ticks=[0,30,50,70,100].map(v=>({value:v})); }, ticks:{color:muted} } } },
+    plugins:[overlay] });
+  updateReadout();
+}
+
+function status(){
+  const i=D.d.length-1, c=D.c[i], el=$('status'); el.textContent='';
+  [['50일선',D.s50[i]],['100일선',D.s100[i]],['200일선',D.s200[i]]].forEach(([n,v])=>{
+    if(v==null) return;
+    const s=document.createElement('span'); const up=c>v; s.className=up?'up':'dn';
+    const p=(c/v-1)*100; s.textContent = n+' '+(up?'위':'아래')+' '+(p>=0?'+':'')+p.toFixed(1)+'%'; el.appendChild(s); });
+  const r=D.r[i]; if(r!=null){ const s=document.createElement('span'); s.className=r>=50?'up':'dn'; s.textContent='RSI '+r.toFixed(1)+(r>=50?' (50 이상)':' (50 미만)'); el.appendChild(s); }
+}
+
+function refreshAll(){
+  prepare();
+  const upd = RAW.updated ? RAW.updated.replace('T',' ').replace('Z',' UTC') : '';
+  $('sub').textContent = (RAW.sources && RAW.sources[S.asset] ? RAW.sources[S.asset] : '')+' 일봉 종가 · '+D.d[0]+' ~ '+D.d[D.d.length-1]+(upd?' · 갱신 '+upd:'');
+  status(); build();
+}
+
+document.querySelectorAll('[data-asset]').forEach(b=>b.addEventListener('click',()=>{
+  if(!RAW) return; S.asset=b.dataset.asset; document.querySelectorAll('[data-asset]').forEach(x=>x.setAttribute('aria-pressed', x===b)); refreshAll(); }));
+document.querySelectorAll('[data-range]').forEach(b=>b.addEventListener('click',()=>{
+  S.range=b.dataset.range; document.querySelectorAll('[data-range]').forEach(x=>x.setAttribute('aria-pressed', x===b)); build(); }));
+[['t50','s50'],['t100','s100'],['t200','s200'],['tlog','log'],['tband','band']].forEach(([id,k])=>$(id).addEventListener('change',e=>{ S[k]=e.target.checked; build(); }));
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>build());
+new MutationObserver(()=>build()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+fetch('data.json?v='+Date.now(), {cache:'no-store'})
+  .then(r => { if(!r.ok) throw new Error('data.json '+r.status); return r.json(); })
+  .then(j => { RAW = j; refreshAll(); })
+  .catch(e => {
+    const el=$('err'); el.hidden=false;
+    el.textContent = '데이터를 불러오지 못했어요 ('+e.message+'). GitHub Pages 주소로 열었는지, data.json 파일이 같은 폴더에 있는지 확인해 주세요. 파일을 컴퓨터에서 직접 열면 브라우저가 막을 수 있어요.';
+    $('sub').textContent = '';
+  });
+</script>
+</body>
+</html>
