@@ -3,55 +3,72 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>BTC · ETH 일봉 이동평균선과 RSI</title>
+<title>BTC · ETH 이평선·RSI와 전략 백테스트</title>
 <style>
 :root{
   --bg:#F5F6F8; --panel:#FFFFFF; --ink:#151A22; --muted:#6A7381; --grid:#E4E7EC; --line:#D5D9E0;
-  --c50:#12908A; --c100:#3F6FE0; --c200:#E4801F; --rsi:#7C5CE6; --band:rgba(228,128,31,.10); --pos:#12805C; --neg:#C7443A;
+  --c50:#12908A; --c100:#3F6FE0; --c200:#E4801F; --rsi:#7C5CE6; --band:rgba(228,128,31,.10); --pos:#12805C; --neg:#C7443A; --hold:#12805C;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
     --bg:#0E1116; --panel:#151A21; --ink:#E8ECF1; --muted:#8B94A3; --grid:#232A34; --line:#2C3440;
-    --c50:#2DBDB5; --c100:#7C9CFF; --c200:#F5A04A; --rsi:#A28CFF; --band:rgba(245,160,74,.10); --pos:#34C08F; --neg:#F0776D;
+    --c50:#2DBDB5; --c100:#7C9CFF; --c200:#F5A04A; --rsi:#A28CFF; --band:rgba(245,160,74,.10); --pos:#34C08F; --neg:#F0776D; --hold:#34C08F;
   }
 }
 :root[data-theme="dark"]{
   --bg:#0E1116; --panel:#151A21; --ink:#E8ECF1; --muted:#8B94A3; --grid:#232A34; --line:#2C3440;
-  --c50:#2DBDB5; --c100:#7C9CFF; --c200:#F5A04A; --rsi:#A28CFF; --band:rgba(245,160,74,.10); --pos:#34C08F; --neg:#F0776D;
+  --c50:#2DBDB5; --c100:#7C9CFF; --c200:#F5A04A; --rsi:#A28CFF; --band:rgba(245,160,74,.10); --pos:#34C08F; --neg:#F0776D; --hold:#34C08F;
 }
 *{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",system-ui,sans-serif;line-height:1.5;-webkit-text-size-adjust:100%}
 .wrap{max-width:1120px;margin:0 auto;padding:20px 16px 40px}
 h1{font-size:20px;font-weight:700;margin:0 0 2px;letter-spacing:-.01em}
 .sub{color:var(--muted);font-size:13px;margin:0 0 16px}
-.readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:12px}
+.readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:12px}
 .readout div{background:var(--panel);padding:8px 12px}
 .readout small{display:block;color:var(--muted);font-size:12px}
 .readout b{font-size:16px;font-variant-numeric:tabular-nums;font-weight:650}
-.readout .k50 b{color:var(--c50)} .readout .k100 b{color:var(--c100)} .readout .k200 b{color:var(--c200)} .readout .krsi b{color:var(--rsi)}
+.readout .k50 b{color:var(--c50)} .readout .k100 b{color:var(--c100)} .readout .k200 b{color:var(--c200)} .readout .krsi b{color:var(--rsi)} .readout .kst b{color:var(--pos)}
 .controls{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin-bottom:10px;font-size:13px}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .seg button{background:var(--panel);color:var(--ink);border:0;border-right:1px solid var(--line);padding:6px 12px;font:inherit;cursor:pointer}
 .seg button:last-child{border-right:0}
 .seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
-.seg button:focus-visible,.chk input:focus-visible{outline:2px solid var(--c100);outline-offset:2px}
+.seg button:focus-visible,.chk input:focus-visible,select:focus-visible{outline:2px solid var(--c100);outline-offset:2px}
+select{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font:inherit;max-width:100%}
 .chk{display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
 .chk i{width:14px;height:3px;border-radius:2px;display:inline-block}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 8px 6px}
-.cv1{position:relative;height:380px}
-.cv2{position:relative;height:150px;border-top:1px solid var(--grid);margin-top:6px;padding-top:6px}
+.cv1{position:relative;height:340px}
+.cv2{position:relative;height:120px;border-top:1px solid var(--grid);margin-top:6px;padding-top:6px}
+.cv3{position:relative;height:210px;border-top:1px solid var(--grid);margin-top:6px;padding-top:6px}
 .plabel{font-size:12px;color:var(--muted);padding:0 8px 2px}
-.status{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 6px}
+.cv1 canvas,.cv2 canvas,.cv3 canvas{touch-action:pan-y;cursor:crosshair}
+.rangebar{display:grid;grid-template-columns:auto 1fr auto 1fr auto;gap:8px 10px;align-items:center;font-size:13px;margin:0 0 10px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+.rangebar input[type=range]{width:100%;accent-color:var(--c100)}
+.rangebar small{color:var(--muted);font-variant-numeric:tabular-nums}
+.btn{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:5px 10px;font:inherit;cursor:pointer}
+.btn:focus-visible{outline:2px solid var(--c100);outline-offset:2px}
+@media (max-width:640px){.rangebar{grid-template-columns:1fr 1fr}.rangebar .full{grid-column:1/-1}}
+.desc{margin:12px 0 4px;font-size:14px}
+.status{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 6px}
 .status span{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:4px 12px;font-size:13px}
 .status .up{color:var(--pos)} .status .dn{color:var(--neg)}
-.note{color:var(--muted);font-size:12px;margin-top:10px;max-width:74ch}
+table{border-collapse:collapse;width:100%;font-size:13px;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-top:10px}
+th,td{padding:8px 12px;text-align:right;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:500}
+tr:last-child td{border-bottom:0}
+.note{color:var(--muted);font-size:12px;margin-top:10px;max-width:78ch}
 .err{border:1px solid var(--neg);color:var(--neg);background:var(--panel);border-radius:8px;padding:12px 14px;font-size:14px;margin-bottom:12px}
 [hidden]{display:none!important}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>BTC · ETH 일봉 이동평균선과 RSI</h1>
+  <h1>BTC · ETH 이평선·RSI와 전략 백테스트</h1>
   <p class="sub" id="sub">데이터를 불러오는 중이에요.</p>
   <div class="err" id="err" hidden></div>
 
@@ -61,6 +78,9 @@ h1{font-size:20px;font-weight:700;margin:0 0 2px;letter-spacing:-.01em}
     <div class="k100"><small>100일선</small><b id="ro-100">-</b></div>
     <div class="k200"><small>200일선</small><b id="ro-200">-</b></div>
     <div class="krsi"><small>RSI(14)</small><b id="ro-rsi">-</b></div>
+    <div class="kst"><small>전략 노출</small><b id="ro-ex">-</b></div>
+    <div class="kst"><small>전략 (시작=100)</small><b id="ro-eq">-</b></div>
+    <div><small>풀 보유 (시작=100)</small><b id="ro-hold">-</b></div>
   </div>
 
   <div class="controls">
@@ -73,33 +93,46 @@ h1{font-size:20px;font-weight:700;margin:0 0 2px;letter-spacing:-.01em}
       <button data-range="2y" aria-pressed="false">2년</button>
       <button data-range="all" aria-pressed="true">전체</button>
     </div>
+    <label class="chk">전략 <select id="strat" aria-label="전략 선택"></select></label>
+  </div>
+  <div class="controls">
     <label class="chk"><input type="checkbox" id="t50" checked><i style="background:var(--c50)"></i>50일선</label>
     <label class="chk"><input type="checkbox" id="t100" checked><i style="background:var(--c100)"></i>100일선</label>
     <label class="chk"><input type="checkbox" id="t200" checked><i style="background:var(--c200)"></i>200일선</label>
     <label class="chk"><input type="checkbox" id="tlog" checked>로그 눈금</label>
-    <label class="chk"><input type="checkbox" id="tband" checked>2023.10~2025.10 구간 표시</label>
+    <label class="chk"><input type="checkbox" id="tshade" checked>보유 구간 음영</label>
+    <label class="chk"><input type="checkbox" id="tarrow" checked>매매 화살표</label>
+    <label class="chk"><input type="checkbox" id="tband" checked>2023.10~2025.10 구간</label>
   </div>
+
+  <div class="rangebar" id="rangebar">
+    <small id="rb-a">시작</small><input type="range" id="sl-a" min="0" max="1" value="0" aria-label="시작일"><small id="rb-b">끝</small><input type="range" id="sl-b" min="0" max="1" value="1" aria-label="끝일"><button class="btn full" id="rb-reset" type="button">전체 기간</button>
+  </div>
+  <p class="desc" id="desc"></p>
 
   <div class="panel">
-    <div class="plabel">종가 (USDT)</div>
-    <div class="cv1"><canvas id="cp" role="img" aria-label="종가와 50, 100, 200일 이동평균선"></canvas></div>
+    <div class="plabel">종가 (USDT) · 초록 음영은 전략이 들고 있는 구간 (진할수록 비중이 큼), ▲ 매수 ▼ 매도 · 차트를 드래그하면 그 구간으로 확대돼요</div>
+    <div class="cv1"><canvas id="cp" role="img" aria-label="종가, 이동평균선, 전략 보유 구간과 매매 신호"></canvas></div>
     <div class="plabel" style="margin-top:8px">RSI(14) · 기준선 30, 50, 70</div>
     <div class="cv2"><canvas id="cr" role="img" aria-label="RSI 14"></canvas></div>
+    <div class="plabel" style="margin-top:8px" id="eqlabel">자산 곡선 (시작=100, 로그 눈금)</div>
+    <div class="cv3"><canvas id="ce" role="img" aria-label="전략, 풀 보유, 현물 보유의 자산 곡선"></canvas></div>
   </div>
 
+  <table id="stats" aria-label="전략 성과 비교">
+    <thead><tr><th>구분</th><th>수익률</th><th>최대 낙폭</th><th>평균 노출</th><th>비중 변경</th><th>이익으로 끝난 매도</th><th>매도 때 고점 대비 반납(중앙값)</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
   <div class="status" id="status"></div>
-  <p class="note">이동평균선은 종가 기준 단순이동평균, RSI는 14일 Wilder 방식이에요. 업비트 USDT 마켓의 일봉 종가(UTC 기준, 한국시간 오전 9시 마감)로 계산하며, 마감 전인 오늘 봉은 넣지 않아요. TradingView(바이낸스) 값과는 소수점 아래에서 조금 다를 수 있어요. 음영은 2023.10.2~2025.10.6 구간이에요.</p>
+  <p class="note">전략과 풀 보유는 <b id="lvname">2배 일간 리셋 상품</b>을 가정한 합성 결과예요(실제 BITX·ETHU와 다르고, 앞서 채팅에서 본 MSTR 포함 조합 결과와도 달라요). 이동평균선은 종가 기준 단순이동평균, RSI는 14일 Wilder 방식이에요. 신호는 평일 종가 기준으로 판단해 다음 거래일 수익부터 적용하고, 거래 비용은 매매 금액의 0.25%를 넣었어요. 세금과 슬리피지는 넣지 않았어요. 과거 성과가 앞으로를 보장하지 않아요. "이익으로 끝난 매도"와 "고점 대비 반납"은 기초자산 가격 기준이에요. 반납 100%는 매도 신호 때 그 보유 구간의 상승분을 전부 돌려준 상태(진입가 수준)이고, 100%를 넘으면 진입가보다 아래에서 팔았다는 뜻이에요.</p>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
-const BAND = ['2023-10-02','2025-10-06'];
-const S = {asset:'btc', range:'all', log:true, s50:true, s100:true, s200:true, band:true, hover:null, i0:0};
-let RAW = null, D = null, cp = null, cr = null;
-const $ = id => document.getElementById(id);
-const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-const fmt = v => v==null ? '-' : (v>=1000 ? Math.round(v).toLocaleString('en-US') : v.toFixed(2));
-
+// ===== CORE-START =====
+const COST = 0.0025;
+const LEV_DAILY_COST = {btc:0.00103, eth:0.00084};  // 실제 ETF가 2배 이론보다 뒤처진 정도(평일 하루 기준)
 function sma(a, n){
   const out = new Array(a.length).fill(null); let s = 0;
   for(let i=0;i<a.length;i++){ s += a[i]; if(i>=n) s -= a[i-n]; if(i>=n-1) out[i] = s/n; }
@@ -119,31 +152,123 @@ function rsi14(a){
   }
   return out;
 }
+const STRATS = {
+  sma50:  {name:'50일선 위에서만 보유',  desc:'종가가 50일선 위면 100% 보유, 아래면 현금으로 둬요.', f:(x,i)=> x.c[i]>x.s50[i] ? 1 : 0},
+  sma100: {name:'100일선 위에서만 보유', desc:'종가가 100일선 위면 100% 보유, 아래면 현금으로 둬요.', f:(x,i)=> x.c[i]>x.s100[i] ? 1 : 0},
+  both:   {name:'50일선·100일선 둘 다 위에서만 보유', desc:'종가가 50일선과 100일선 위에 모두 있을 때만 100% 보유하고, 하나라도 아래로 내려가면 현금으로 둬요. 50일선이 더 빨라서 100일선만 쓸 때보다 일찍 빠져나와요.', f:(x,i)=> (x.c[i]>x.s50[i] && x.c[i]>x.s100[i]) ? 1 : 0},
+  sma200: {name:'200일선 위에서만 보유', desc:'종가가 200일선 위면 100% 보유, 아래면 현금으로 둬요.', f:(x,i)=> x.c[i]>x.s200[i] ? 1 : 0},
+  rsi50:  {name:'RSI 50 위에서만 보유',  desc:'RSI가 50을 넘어 있을 때만 100% 보유하고, 50 이하면 현금으로 둬요. RSI를 과열 신호가 아니라 추세 확인용으로 쓰는 방식이에요.', f:(x,i)=> x.r[i]!=null && x.r[i]>50 ? 1 : 0},
+  rsi70:  {name:'RSI 70 넘으면 절반',    desc:'평소 100% 보유하다가 RSI가 70을 넘으면 절반으로 줄여요. (과열 신호로 비중을 줄이는 방식)', f:(x,i)=> x.r[i]!=null && x.r[i]>70 ? 0.5 : 1},
+  rsidip: {name:'RSI 저점매수·과열매도', desc:'기본 70% 보유, RSI 40 아래면 100%로 늘리고 RSI 70 위면 35%로 줄여요.', f:(x,i)=> x.r[i]==null ? 0.7 : (x.r[i]<40 ? 1 : (x.r[i]>70 ? 0.35 : 0.7))},
+  hold:   {name:'풀 보유 (기준)',        desc:'항상 100% 보유해요. 다른 전략과 비교하는 기준이에요.', f:()=>1},
+};
+function weekdayIdx(dow, start, end){ const W=[]; const last = end==null ? dow.length-1 : end; for(let i=start;i<=last;i++){ if(dow[i]>=1 && dow[i]<=5) W.push(i); } return W; }
+function simulate(closes, W, f, lev, dailyCost){
+  let E=1, I=0, cash=1, prevT=null, changes=0, sumExp=0, steps=0;
+  const eqAt = new Map(), expoAt = new Map(), events = [], stints = [];
+  let stint = null;
+  eqAt.set(W[0], 1);
+  let peak=1, mdd=0;
+  for(let k=0;k<W.length-1;k++){
+    const p=W[k], t=W[k+1];
+    const tgt = f(p);
+    let Itgt = tgt*E; const tr = Math.abs(Itgt-I); E -= COST*tr; Itgt = tgt*E; I = Itgt; cash = E-I;
+    if(k===0){ if(tgt>0) events.push({i:p, type:'buy', to:tgt}); }
+    else if(tgt!==prevT){ changes++; events.push({i:p, type: tgt>prevT?'buy':'sell', to:tgt}); }
+    // 보유 구간(전량 매수 → 전량 매도) 기록: 기초자산 가격 기준으로 진입가, 최고가, 청산가를 남겨요
+    if(tgt>0){ if(stint===null) stint = {entry:closes[p], peak:closes[p], i0:p}; else if(closes[p]>stint.peak) stint.peak = closes[p]; }
+    else if(stint!==null){ stints.push({entry:stint.entry, peak:stint.peak, exit:closes[p], i0:stint.i0, i1:p}); stint = null; }
+    prevT = tgt;
+    const r = lev*(closes[t]/closes[p]-1) + dailyCost;
+    I *= (1+r); if(I<0) I=0; E = I+cash;
+    eqAt.set(t, E); expoAt.set(p, tgt); sumExp += tgt; steps++;
+    if(E>peak) peak=E; const dd=E/peak-1; if(dd<mdd) mdd=dd;
+  }
+  return {eqAt, expoAt, events, stints, changes, avgExp: steps? sumExp/steps : 0, mdd, total: E-1};
+}
+function stintStats(stints){
+  if(!stints.length) return null;
+  const win = stints.filter(s => s.exit > s.entry).length;
+  const gb = stints.filter(s => s.peak > s.entry).map(s => (s.peak - s.exit)/(s.peak - s.entry)).sort((a,b)=>a-b);
+  const med = gb.length ? (gb.length%2 ? gb[(gb.length-1)/2] : (gb[gb.length/2-1]+gb[gb.length/2])/2) : null;
+  return {n:stints.length, win, med};
+}
+function toCalendar(n, W, res){
+  const eq = new Array(n).fill(null), expo = new Array(n).fill(null);
+  let last=null;
+  for(let i=W[0]; i<n; i++){ if(res.eqAt.has(i)) last=res.eqAt.get(i); eq[i]=last==null?null:last*100; }
+  // 노출: 결정일 p부터 다음 평일 t 전날까지 유지
+  for(let k=0;k<W.length-1;k++){ const p=W[k], t=W[k+1], e=res.expoAt.get(p); for(let i=p;i<t;i++) expo[i]=e; }
+  return {eq, expo};
+}
+function runStrategy(x, dow, key, asset, i0, i1){
+  const start = Math.max(i0, 200);
+  const W = weekdayIdx(dow, start, i1); if(W.length<3) return null;
+  const dc = -LEV_DAILY_COST[asset];
+  const f = i => STRATS[key].f(x,i);
+  const sr = simulate(x.c, W, f, 2, dc);
+  const hr = simulate(x.c, W, STRATS.hold.f, 2, dc);
+  const pr = simulate(x.c, W, STRATS.hold.f, 1, 0);
+  const n = x.c.length;
+  return {W, start, s:sr, h:hr, p:pr, cs:toCalendar(n,W,sr), ch:toCalendar(n,W,hr), cp:toCalendar(n,W,pr)};
+}
+// ===== CORE-END =====
+
+const BAND = ['2023-10-02','2025-10-06'];
+const S = {asset:'btc', range:'all', custom:null, strat:'sma100', log:true, s50:true, s100:true, s200:true, band:true, shade:true, arrow:true, hover:null, i0:0, i1:0, drag:null};
+let RAW = null, D = null, DOW = null, R = null, cp = null, cr = null, ce = null;
+const $ = id => document.getElementById(id);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmt = v => v==null ? '-' : (v>=1000 ? Math.round(v).toLocaleString('en-US') : v.toFixed(2));
+const pct = v => (v>=0?'+':'')+(v*100).toFixed(0)+'%';
+
 function prepare(){
   const s = RAW.series[S.asset];
   D = {d:s.d, c:s.c, s50:sma(s.c,50), s100:sma(s.c,100), s200:sma(s.c,200), r:rsi14(s.c)};
+  DOW = D.d.map(x => new Date(x+'T00:00:00Z').getUTCDay());
 }
-function startIndex(){ const n=D.d.length; return S.range==='1y' ? Math.max(0,n-365) : S.range==='2y' ? Math.max(0,n-730) : 0; }
+function bounds(){
+  const n=D.d.length;
+  if(S.range==='custom' && S.custom) return [Math.max(0,Math.min(S.custom.a,n-2)), Math.min(n-1,Math.max(S.custom.b,1))];
+  const a = S.range==='1y' ? Math.max(0,n-365) : S.range==='2y' ? Math.max(0,n-730) : 0;
+  return [a, n-1];
+}
 function lowerBound(arr, key){ let i=0; while(i<arr.length && arr[i]<key) i++; return i; }
 
 function updateReadout(){
-  const gi = S.hover==null ? D.d.length-1 : S.i0 + S.hover;
+  const gi = S.hover==null ? S.i1 : S.i0 + S.hover;
   $('ro-date').textContent = D.d[gi];
   $('ro-close').textContent = fmt(D.c[gi]);
   $('ro-50').textContent = fmt(D.s50[gi]);
   $('ro-100').textContent = fmt(D.s100[gi]);
   $('ro-200').textContent = fmt(D.s200[gi]);
   $('ro-rsi').textContent = D.r[gi]==null ? '-' : D.r[gi].toFixed(1);
+  let ex = R && R.cs.expo[gi];
+  if(ex==null && gi===D.d.length-1 && R && S.i1===D.d.length-1) ex = STRATS[S.strat].f(D,gi);   // 마지막 날은 다음 거래일에 적용될 신호
+  $('ro-ex').textContent = ex==null ? '-' : Math.round(ex*100)+'%';
+  $('ro-eq').textContent = R && R.cs.eq[gi]!=null ? R.cs.eq[gi].toFixed(0) : '-';
+  $('ro-hold').textContent = R && R.ch.eq[gi]!=null ? R.ch.eq[gi].toFixed(0) : '-';
 }
 
 const overlay = {
   id:'overlay',
   beforeDatasetsDraw(chart){
     const o = chart.options.plugins.overlay || {};
-    if(!o.band || o.b0==null) return;
     const {ctx, chartArea:a, scales:{x}} = chart;
-    const x0 = x.getPixelForValue(o.b0), x1 = x.getPixelForValue(o.b1);
-    ctx.save(); ctx.fillStyle = css('--band'); ctx.fillRect(x0, a.top, Math.max(0,x1-x0), a.bottom-a.top); ctx.restore();
+    if(o.band && o.b0!=null){
+      const x0 = x.getPixelForValue(o.b0), x1 = x.getPixelForValue(o.b1);
+      ctx.save(); ctx.fillStyle = css('--band'); ctx.fillRect(x0, a.top, Math.max(0,x1-x0), a.bottom-a.top); ctx.restore();
+    }
+    if(o.expo){
+      const ex = o.expo; ctx.save(); ctx.fillStyle = css('--hold');
+      let j=0; const n=ex.length;
+      while(j<n){
+        const e = ex[j]; let k=j+1; while(k<n && ex[k]===e) k++;
+        if(e!=null && e>0){ ctx.globalAlpha = 0.05 + 0.17*e; const x0=x.getPixelForValue(j), x1=x.getPixelForValue(Math.min(k,n-1)); ctx.fillRect(x0, a.top, Math.max(1,x1-x0), a.bottom-a.top); }
+        j=k;
+      }
+      ctx.restore();
+    }
   },
   afterDatasetsDraw(chart){
     const o = chart.options.plugins.overlay || {};
@@ -153,7 +278,27 @@ const overlay = {
       ctx.strokeStyle = css('--muted'); ctx.globalAlpha = .55; ctx.lineWidth = 1; ctx.setLineDash([4,4]);
       o.guides.forEach(v => { const py=y.getPixelForValue(v); ctx.beginPath(); ctx.moveTo(a.left,py); ctx.lineTo(a.right,py); ctx.stroke(); });
     }
-    if(S.hover!=null){
+    if(o.marks){
+      ctx.setLineDash([]); ctx.globalAlpha = .95;
+      let lastPx = -1e9, omitted = 0; const GAP = 13;
+      o.marks.forEach(m => {
+        const px = x.getPixelForValue(m.i), py = y.getPixelForValue(m.y); if(px<a.left||px>a.right) return;
+        if(px - lastPx < GAP){ omitted++; return; }   // 너무 가까운 화살표는 건너뛰어요
+        lastPx = px;
+        const s = 4; ctx.beginPath();
+        if(m.type==='buy'){ ctx.fillStyle = css('--pos'); ctx.moveTo(px,py+2); ctx.lineTo(px-s,py+2+s*1.6); ctx.lineTo(px+s,py+2+s*1.6); }
+        else { ctx.fillStyle = css('--neg'); ctx.moveTo(px,py-2); ctx.lineTo(px-s,py-2-s*1.6); ctx.lineTo(px+s,py-2-s*1.6); }
+        ctx.closePath(); ctx.fill();
+      });
+      if(omitted>0){ ctx.globalAlpha = 1; ctx.fillStyle = css('--muted'); ctx.font = '11px -apple-system,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif'; ctx.textAlign = 'left';
+        ctx.fillText('겹치는 화살표 '+omitted+'개는 숨겼어요. 차트를 드래그해서 확대하면 보여요', a.left+6, a.top+14); }
+    }
+    if(S.drag){
+      const xa = x.getPixelForValue(Math.min(S.drag.a,S.drag.b)), xb = x.getPixelForValue(Math.max(S.drag.a,S.drag.b));
+      ctx.setLineDash([]); ctx.globalAlpha = .18; ctx.fillStyle = css('--c100'); ctx.fillRect(xa, a.top, Math.max(1,xb-xa), a.bottom-a.top);
+      ctx.globalAlpha = .9; ctx.strokeStyle = css('--c100'); ctx.lineWidth = 1; ctx.strokeRect(xa, a.top, Math.max(1,xb-xa), a.bottom-a.top);
+    }
+    if(S.hover!=null && !S.drag){
       const px = x.getPixelForValue(S.hover);
       ctx.setLineDash([]); ctx.globalAlpha = .7; ctx.strokeStyle = css('--muted'); ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(px,a.top); ctx.lineTo(px,a.bottom); ctx.stroke();
@@ -168,7 +313,7 @@ const overlay = {
       if(els.length) S.hover = els[0].index;
     } else return;
     updateReadout();
-    [cp,cr].forEach(c => { if(c && c!==chart) c.draw(); });
+    [cp,cr,ce].forEach(c => { if(c && c!==chart) c.draw(); });
   }
 };
 
@@ -177,36 +322,80 @@ function tickFmt(v){
   if(S.log){ const m = n / Math.pow(10, Math.floor(Math.log10(n))); if(![1,2,5].includes(Math.round(m))) return ''; }
   return n>=1000 ? (n/1000)+'k' : n;
 }
+function eqTickFmt(v){
+  const n = +v; const m = n / Math.pow(10, Math.floor(Math.log10(n)));
+  if(![1,2,5].includes(Math.round(m))) return '';
+  return n>=1000 ? (n/1000)+'k' : n;
+}
 
 function build(){
   if(!D) return;
-  if(cp) cp.destroy(); if(cr) cr.destroy();
-  const i0 = startIndex(); S.i0 = i0; S.hover = null;
-  const L = D.d.slice(i0);
+  if(cp) cp.destroy(); if(cr) cr.destroy(); if(ce) ce.destroy();
+  const [i0,i1] = bounds(); S.i0 = i0; S.i1 = i1; S.hover = null; S.drag = null;
+  const L = D.d.slice(i0, i1+1);
+  R = runStrategy(D, DOW, S.strat, S.asset, i0, i1);
   const ink=css('--ink'), grid=css('--grid'), muted=css('--muted');
   const b0 = lowerBound(L, BAND[0]), b1 = Math.min(L.length-1, lowerBound(L, BAND[1]));
   const bandOn = S.band && b1>b0 && b0<L.length;
-  const ds = (label,key,color,w,show)=>({label, data:D[key].slice(i0), borderColor:color, borderWidth:w, pointRadius:0, pointHoverRadius:0, tension:0, spanGaps:false, hidden:!show});
+  const ds = (label,arr,color,w,show,dash)=>({label, data:arr.slice(i0,i1+1), borderColor:color, borderWidth:w, pointRadius:0, pointHoverRadius:0, tension:0, spanGaps:false, hidden:!show, borderDash:dash||[]});
   const xopt = { grid:{color:grid, drawTicks:false}, border:{color:grid},
     ticks:{ color:muted, maxRotation:0, autoSkip:true, maxTicksLimit:8, callback:(v)=>{ const s=L[v]; return s ? s.slice(2,4)+'.'+s.slice(5,7) : ''; } } };
   const common = { responsive:true, maintainAspectRatio:false, animation:false, events:['mousemove','mouseout','touchstart','touchmove'],
     interaction:{mode:'index', intersect:false}, layout:{padding:{right:4}} };
+  let expo=null, marks=null;
+  if(R && S.strat!=='hold'){
+    if(S.shade) expo = R.cs.expo.slice(i0,i1+1);
+    if(S.arrow) marks = R.s.events.map(ev => ({i:ev.i-i0, type:ev.type, y:D.c[ev.i]})).filter(m => m.i>=0 && m.i<=i1-i0);
+  }
   cp = new Chart($('cp'), { type:'line', data:{labels:L, datasets:[
-      ds('종가','c',ink,1.3,true), ds('50일선','s50',css('--c50'),1.5,S.s50), ds('100일선','s100',css('--c100'),1.5,S.s100), ds('200일선','s200',css('--c200'),2,S.s200)]},
-    options:{...common, plugins:{legend:{display:false}, tooltip:{enabled:false}, overlay:{band:bandOn, b0, b1}},
-      scales:{ x:{...xopt, ticks:{...xopt.ticks, display:true}},
+      ds('종가',D.c,ink,1.3,true), ds('50일선',D.s50,css('--c50'),1.5,S.s50), ds('100일선',D.s100,css('--c100'),1.5,S.s100), ds('200일선',D.s200,css('--c200'),2,S.s200)]},
+    options:{...common, plugins:{legend:{display:false}, tooltip:{enabled:false}, overlay:{band:bandOn, b0, b1, expo, marks}},
+      scales:{ x:{...xopt, ticks:{...xopt.ticks, display:false}},
         y:{ type:S.log?'logarithmic':'linear', position:'right', grid:{color:grid}, border:{display:false},
             ticks:{color:muted, callback:tickFmt, maxTicksLimit:8} } } },
     plugins:[overlay] });
-  cr = new Chart($('cr'), { type:'line', data:{labels:L, datasets:[ds('RSI','r',css('--rsi'),1.4,true)]},
-    options:{...common, plugins:{legend:{display:false}, tooltip:{enabled:false}, overlay:{band:bandOn, b0, b1, guides:[30,50,70]}},
+  cr = new Chart($('cr'), { type:'line', data:{labels:L, datasets:[ds('RSI',D.r,css('--rsi'),1.4,true)]},
+    options:{...common, plugins:{legend:{display:false}, tooltip:{enabled:false}, overlay:{band:bandOn, b0, b1, guides:[30,50,70], expo}},
       scales:{ x:{...xopt, ticks:{...xopt.ticks, display:false}},
         y:{ min:0, max:100, position:'right', grid:{display:false}, border:{display:false},
             afterBuildTicks:ax=>{ ax.ticks=[0,30,50,70,100].map(v=>({value:v})); }, ticks:{color:muted} } } },
     plugins:[overlay] });
-  updateReadout();
+  const eqSets = R ? [ds('전략',R.cs.eq,css('--pos'),2,true), ds('풀 보유(2배 합성)',R.ch.eq,muted,1.4,true,[5,4]), ds('현물 보유',R.cp.eq,css('--c100'),1.3,true)] : [];
+  ce = new Chart($('ce'), { type:'line', data:{labels:L, datasets:eqSets},
+    options:{...common, plugins:{legend:{display:true, position:'top', align:'start', labels:{color:muted, boxWidth:14, boxHeight:3, usePointStyle:false, font:{size:12}}}, tooltip:{enabled:false}, overlay:{band:bandOn, b0, b1, expo}},
+      scales:{ x:xopt,
+        y:{ type:'logarithmic', position:'right', grid:{color:grid}, border:{display:false}, ticks:{color:muted, callback:eqTickFmt, maxTicksLimit:6} } } },
+    plugins:[overlay] });
+  updateReadout(); renderStats(); renderDesc(); syncRange();
 }
 
+function renderDesc(){
+  const st = STRATS[S.strat];
+  $('desc').textContent = st.name+': '+st.desc+' 신호는 전날 종가 기준이에요.';
+  $('lvname').textContent = S.asset==='btc' ? 'BITX 같은 BTC 2배 상품' : 'ETHU 같은 ETH 2배 상품';
+  $('eqlabel').textContent = R ? '자산 곡선 (시작=100, 로그 눈금, '+D.d[R.start]+' ~ '+D.d[S.i1]+')' : '자산 곡선';
+}
+function renderStats(){
+  const tb = $('stats').querySelector('tbody'); tb.textContent='';
+  if(!R){
+    const tr=document.createElement('tr'); const td=document.createElement('td'); td.colSpan=7;
+    td.textContent='이 구간은 전략 결과를 계산할 수 없어요. 200일선 계산이 끝난 '+D.d[200]+' 이후에서 3거래일 이상 선택해 주세요.'; td.style.textAlign='left'; tr.appendChild(td); tb.appendChild(tr); return;
+  }
+  const ss = stintStats(R.s.stints);
+  const rows = [
+    [STRATS[S.strat].name+' (2배 합성)', R.s.total, R.s.mdd, R.s.avgExp, R.s.changes],
+    ['풀 보유 (2배 합성)', R.h.total, R.h.mdd, 1, 0],
+    ['현물 보유 (1배)', R.p.total, R.p.mdd, 1, 0],
+  ];
+  rows.forEach((r,idx) => {
+    const tr = document.createElement('tr');
+    const winTxt = idx===0 && ss ? Math.round(ss.win/ss.n*100)+'% ('+ss.win+'/'+ss.n+'회)' : '-';
+    const gbTxt = idx===0 && ss && ss.med!=null ? Math.round(ss.med*100)+'%' : '-';
+    const cells = [r[0], pct(r[1]), (r[2]*100).toFixed(0)+'%', Math.round(r[3]*100)+'%', idx===0 ? r[4]+'회' : '-', winTxt, gbTxt];
+    cells.forEach((t,j)=>{ const td=document.createElement('td'); td.textContent=t; if(j===1) td.style.color = r[1]>=0 ? 'var(--pos)' : 'var(--neg)'; tr.appendChild(td); });
+    tb.appendChild(tr);
+  });
+}
 function status(){
   const i=D.d.length-1, c=D.c[i], el=$('status'); el.textContent='';
   [['50일선',D.s50[i]],['100일선',D.s100[i]],['200일선',D.s200[i]]].forEach(([n,v])=>{
@@ -214,8 +403,10 @@ function status(){
     const s=document.createElement('span'); const up=c>v; s.className=up?'up':'dn';
     const p=(c/v-1)*100; s.textContent = n+' '+(up?'위':'아래')+' '+(p>=0?'+':'')+p.toFixed(1)+'%'; el.appendChild(s); });
   const r=D.r[i]; if(r!=null){ const s=document.createElement('span'); s.className=r>=50?'up':'dn'; s.textContent='RSI '+r.toFixed(1)+(r>=50?' (50 이상)':' (50 미만)'); el.appendChild(s); }
+  const now = STRATS[S.strat].f(D,i);
+  const s2=document.createElement('span'); s2.className = now>0 ? 'up':'dn';
+  s2.textContent = '지금 이 전략 신호: 노출 '+Math.round(now*100)+'%'; el.appendChild(s2);
 }
-
 function refreshAll(){
   prepare();
   const upd = RAW.updated ? RAW.updated.replace('T',' ').replace('Z',' UTC') : '';
@@ -223,22 +414,74 @@ function refreshAll(){
   status(); build();
 }
 
+const sel = $('strat');
+Object.keys(STRATS).forEach(k => { const o=document.createElement('option'); o.value=k; o.textContent=STRATS[k].name; if(k===S.strat) o.selected=true; sel.appendChild(o); });
+sel.addEventListener('change', e => { S.strat = e.target.value; if(D){ status(); build(); } });
 document.querySelectorAll('[data-asset]').forEach(b=>b.addEventListener('click',()=>{
   if(!RAW) return; S.asset=b.dataset.asset; document.querySelectorAll('[data-asset]').forEach(x=>x.setAttribute('aria-pressed', x===b)); refreshAll(); }));
+function setPresetPressed(v){ document.querySelectorAll('[data-range]').forEach(x=>x.setAttribute('aria-pressed', x.dataset.range===v)); }
 document.querySelectorAll('[data-range]').forEach(b=>b.addEventListener('click',()=>{
-  S.range=b.dataset.range; document.querySelectorAll('[data-range]').forEach(x=>x.setAttribute('aria-pressed', x===b)); build(); }));
-[['t50','s50'],['t100','s100'],['t200','s200'],['tlog','log'],['tband','band']].forEach(([id,k])=>$(id).addEventListener('change',e=>{ S[k]=e.target.checked; build(); }));
+  S.range=b.dataset.range; S.custom=null; setPresetPressed(S.range); build(); }));
+// ----- 기간 선택: 슬라이더 + 드래그
+const slA=$('sl-a'), slB=$('sl-b');
+function syncRange(){
+  const n=D.d.length; slA.max=slB.max=String(n-1); slA.value=String(S.i0); slB.value=String(S.i1);
+  $('rb-a').textContent=D.d[S.i0]; $('rb-b').textContent=D.d[S.i1];
+  setPresetPressed(S.range==='custom' ? '' : S.range);
+}
+function applyCustom(a,b){
+  const n=D.d.length; a=Math.max(0,Math.min(a,n-1)); b=Math.max(0,Math.min(b,n-1));
+  if(b-a<10){ if(a+10<=n-1) b=a+10; else a=b-10; }
+  S.custom={a,b}; S.range='custom'; build();
+}
+[slA,slB].forEach(sl => {
+  sl.addEventListener('input', () => { $('rb-a').textContent=D.d[+slA.value]; $('rb-b').textContent=D.d[+slB.value]; });
+  sl.addEventListener('change', () => { if(D) applyCustom(Math.min(+slA.value,+slB.value), Math.max(+slA.value,+slB.value)); });
+});
+$('rb-reset').addEventListener('click', () => { S.range='all'; S.custom=null; build(); });
+function chartOf(id){ return id==='cp' ? cp : id==='cr' ? cr : ce; }
+['cp','cr','ce'].forEach(id => {
+  const cv=$(id);
+  cv.addEventListener('pointerdown', e => {
+    if(!D || e.button>0) return;
+    const ch=chartOf(id); if(!ch || !ch.chartArea) return;
+    const px = e.clientX - cv.getBoundingClientRect().left, ar = ch.chartArea;
+    if(px<ar.left || px>ar.right) return;
+    const len = S.i1-S.i0;
+    const idx = Math.max(0, Math.min(len, Math.round(ch.scales.x.getValueForPixel(px))));
+    S.drag = {a:idx, b:idx, id, moved:false};
+    const move = ev => {
+      if(!S.drag) return;
+      const p = ev.clientX - cv.getBoundingClientRect().left;
+      S.drag.b = Math.max(0, Math.min(len, Math.round(ch.scales.x.getValueForPixel(p))));
+      S.drag.moved = true; [cp,cr,ce].forEach(c => c && c.draw());
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
+      const d0=S.drag; S.drag=null;
+      if(d0 && d0.moved && Math.abs(d0.b-d0.a)>=5){ applyCustom(S.i0+Math.min(d0.a,d0.b), S.i0+Math.max(d0.a,d0.b)); }
+      else [cp,cr,ce].forEach(c => c && c.draw());
+    };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+  });
+  cv.addEventListener('dblclick', () => { if(D){ S.range='all'; S.custom=null; build(); } });
+});
+[['t50','s50'],['t100','s100'],['t200','s200'],['tlog','log'],['tband','band'],['tshade','shade'],['tarrow','arrow']].forEach(([id,k])=>$(id).addEventListener('change',e=>{ S[k]=e.target.checked; build(); }));
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>build());
 new MutationObserver(()=>build()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
 
-fetch('data.json?v='+Date.now(), {cache:'no-store'})
-  .then(r => { if(!r.ok) throw new Error('data.json '+r.status); return r.json(); })
-  .then(j => { RAW = j; refreshAll(); })
-  .catch(e => {
-    const el=$('err'); el.hidden=false;
-    el.textContent = '데이터를 불러오지 못했어요 ('+e.message+'). GitHub Pages 주소로 열었는지, data.json 파일이 같은 폴더에 있는지 확인해 주세요. 파일을 컴퓨터에서 직접 열면 브라우저가 막을 수 있어요.';
-    $('sub').textContent = '';
-  });
+function fail(e){
+  const el=$('err'); el.hidden=false;
+  el.textContent = '데이터를 불러오지 못했어요 ('+e.message+'). GitHub Pages 주소로 열었는지, data.json 파일이 같은 폴더에 있는지 확인해 주세요. 파일을 컴퓨터에서 직접 열면 브라우저가 막을 수 있어요.';
+  $('sub').textContent = '';
+}
+if(window.__INLINE__){ try{ RAW = window.__INLINE__; refreshAll(); }catch(e){ fail(e); } }
+else {
+  fetch('data.json?v='+Date.now(), {cache:'no-store'})
+    .then(r => { if(!r.ok) throw new Error('data.json '+r.status); return r.json(); })
+    .then(j => { RAW = j; refreshAll(); })
+    .catch(fail);
+}
 </script>
 </body>
 </html>
